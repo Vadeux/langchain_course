@@ -1,4 +1,6 @@
-from typing import Any, cast
+from typing import Any, cast, List
+
+from pydantic import BaseModel, Field
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
@@ -9,25 +11,24 @@ from langchain_tavily import TavilySearch
 load_dotenv()
 
 
-# from langchain.tools import tool
-# from tavily import TavilyClient
-# tavily = TavilyClient()
-# @tool
-# def search(query: str) -> str:
-#     """
-#     Tool that searches over the internet
-#     Args:
-#         query: The query to search for
-#     Returns:
-#         The search result
-#     """
-#     print(f"Searching for {query}")
-#     return tavily.search(query=query)
+class Source(BaseModel):
+    """Schema for a source used by the agent."""
+    url: str = Field(description="The URL of the source")
+
+
+class AgentResponse(BaseModel):
+    """Schema for agent response with answer and sources."""
+    answer: str = Field(description="The agent's answer to the query")
+    sources: List[Source] = Field(default_factory=list, description="The list if sources used to generate the answer")
 
 
 llm = ChatOpenAI(temperature=0, model="gpt-5-mini")
 tools = [TavilySearch()]
-agent = create_agent(model=llm, tools=tools)
+agent = create_agent(
+        model=llm,
+        tools=tools,
+        response_format=AgentResponse,
+    )
 
 
 def main():
