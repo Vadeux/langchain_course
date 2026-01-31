@@ -46,7 +46,7 @@ def main():
             ]
         }
     )
-    print(result)
+    print(result["structured_response"])
 
 
 if __name__ == "__main__":
