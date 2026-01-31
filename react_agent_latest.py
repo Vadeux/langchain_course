@@ -2,7 +2,6 @@ from typing import Any, List, cast
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
-from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
 from pydantic import BaseModel, Field
@@ -26,7 +25,7 @@ class AgentResponse(BaseModel):
     )
 
 
-llm = ChatOpenAI(temperature=0, model="gpt-5-mini")
+llm = ChatOpenAI(temperature=0, model="gpt-4o")
 tools = [TavilySearch()]
 agent = create_agent(
     model=llm,
@@ -40,9 +39,10 @@ def main():
     result = cast(Any, agent).invoke(
         {
             "messages": [
-                HumanMessage(
-                    content="Search for 3 job postings for an ai engineer using langchain in the Minsk area on linkedin and list their details"
-                )
+                {
+                    "role": "user",
+                    "content": "Search for 3 job postings for an ai engineer using langchain in the Bay area on linkedin and list their details",
+                }
             ]
         }
     )
