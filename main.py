@@ -1,104 +1,38 @@
 from dotenv import load_dotenv
-from langchain.tools import tool
-from langchain_classic.agents.output_parsers import \
-    ReActSingleInputOutputParser
-from langchain_core.agents import AgentAction, AgentFinish
-from langchain_core.prompts import PromptTemplate
-from langchain_core.tools import BaseTool, render_text_description
+from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-
-from callbacks import AgentCallbackHandler
-from log import format_log_to_str
+from langchain_tavily import TavilySearch
 
 load_dotenv()
 
 
 @tool
-def get_text_length(text: str) -> int:
-    """Return the length of a text by characters."""
-    print(f"get_text_length called with: {text}")
-    text = text.strip("'\n").strip('"')
-    return len(text)
-
-
-def find_tool_by_name(tools: list[BaseTool], tool_name: str) -> BaseTool | ValueError:
-    for t in tools:
-        if t.name == tool_name:
-            return t
-    return ValueError(f"Tool with name {tool_name} not found")
-
-
-def main():
-    print("Hello from ReAct LangChain!")
-    tools = [get_text_length]
-
-    template = """
-    Answer the following questions as best you can. You have access to the following tools:
-
-    {tools}
-    
-    Use the following format:
-    
-    Question: the input question you must answer
-    Thought: you should always think about what to do
-    Action: the action to take, should be one of [{tool_names}]
-    Action Input: the input to the action
-    Observation: the result of the action
-    ... (this Thought/Action/Action Input/Observation can repeat N times)
-    Thought: I now know the final answer
-    Final Answer: the final answer to the original input question
-    
-    Begin!
-    
-    Question: {input}
-    Thought: {agent_scratchpad}
-    """
-    prompt = PromptTemplate.from_template(template=template).partial(
-        tools=render_text_description(tools),
-        tool_names=", ".join([t.name for t in tools]),
-    )
-
-    llm = ChatOpenAI(
-        temperature=0,
-        model="gpt-4",
-        stop_sequences=["\nObservation", "Observation:", "Observation"],
-        callbacks=[AgentCallbackHandler()],
-    )
-
-    intermediate_steps = []
-
-    agent = (
-        {
-            "input": lambda x: x["input"],
-            "agent_scratchpad": lambda x: format_log_to_str(x["agent_scratchpad"]),
-        }
-        | prompt
-        | llm
-        | ReActSingleInputOutputParser()
-    )
-
-    agent_step: AgentAction | AgentFinish | str = ""
-
-    while not isinstance(agent_step, AgentFinish):
-        agent_step: AgentAction | AgentFinish = agent.invoke(
-            {
-                "input": "What is the length of 'DOG' in characters?",
-                "agent_scratchpad": intermediate_steps,
-            }
-        )
-        print(agent_step)
-
-        if isinstance(agent_step, AgentAction):
-            tool_to_use = find_tool_by_name(tools, agent_step.tool)
-            tool_input = agent_step.tool_input
-
-            observation = tool_to_use.func(str(tool_input))
-            print(f"{observation}")
-            intermediate_steps.append((agent_step, str(observation)))
-
-    if isinstance(agent_step, AgentFinish):
-        print(agent_step.return_values)
+def multiply(x: float, y: float) -> float:
+    """Multiply 'x' times 'y'."""
+    return x * y
 
 
 if __name__ == "__main__":
-    main()
+    print("Start.")
+
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", "You are a helpful assistant."),
+            ("human", "{input}"),
+            ("placeholder", "{agent_scratchpad}"),
+        ]
+    )
+    tools = [TavilySearch(), multiply]
+    llm = ChatOpenAI(temperature=0, model="gpt-4o")
+
+    agent = create_tool_calling_agent(llm=llm, tools=tools, prompt=prompt)
+    agent_executor = AgentExecutor(agent=agent, tools=tools)
+
+    result = agent_executor.invoke(
+        {
+            "input": "What is the weather in Dubai right now? compare it with Minsk, output should be in Celsius",
+        }
+    )
+    print(result)
