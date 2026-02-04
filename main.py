@@ -1,9 +1,11 @@
 import os
+from operator import itemgetter
 
 from dotenv import load_dotenv
 from langchain_core.documents import Document
-from langchain_core.messages import HumanMessage
+from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 
@@ -35,7 +37,7 @@ def format_docs(docs: list[Document]) -> str:
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-def retrieval_chai_without_lcel(query: str):
+def retrieval_chai_without_lcel(query: str) -> str:
     """
     Simple retrieval chain without langchain expression language.
     Manually retrieves docs, formats them, and generates a response.
@@ -61,10 +63,40 @@ def retrieval_chai_without_lcel(query: str):
     return response.content
 
 
+def create_retrieval_chain_with_lcel():
+    """
+    Create a retrieval chain using LangChain Expression Language (LCEL).
+    Returns a chain that can be invoked with {"question": "..."}
+
+    Advantages over non-LCEL approach:
+    - Declarative and composable: Easy to chain operations with pipe operator (|)
+    - Built-in streaming: chain.stream() works out of the box
+    - Built-in async: chain.ainvoke() and chain.astream() available
+    - Batch processing: chain.batch() for multiple inputs
+    - Type safety: Better integration with LangChain's type system
+    - Less code: More concise and readable
+    - Reusable: Chain can be saved, shared, and composed with other chains
+    - Better debugging: LangChain provides better observability tools
+    """
+    retriever_chain = (
+        RunnablePassthrough.assign(
+            context=itemgetter("question") | retriever | format_docs
+        )  # lc will auto convert py func into RunnableLambda(format_docs)
+        | prompt_template
+        | llm
+        | StrOutputParser()
+    )
+    return retriever_chain
+
+
 if __name__ == "__main__":
     print("Retrieving...")
 
     query = "What is Pinecone in machine learning?"
 
-    result_without_lcel = retrieval_chai_without_lcel(query)
-    print(result_without_lcel)
+    # result_without_lcel = retrieval_chai_without_lcel(query)
+    # print(result_without_lcel)
+
+    chain_with_lcel = create_retrieval_chain_with_lcel()
+    result = chain_with_lcel.invoke({"question": query})
+    print(result)
