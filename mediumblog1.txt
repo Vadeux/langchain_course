@@ -1,25 +1,4 @@
-
-Search
-Write
-
-Emarco
 Vector Database: What is it and why you should know it?
-Ejiro Onose
-Ejiro Onose
-
-·
-Follow
-
-9 min read
-·
-Dec 22, 2023
-100
-
-
-
-
-
-
 
 “If 2021 was the year of graph databases, 2023 is the year of vector databases” — Chip Huen.
 

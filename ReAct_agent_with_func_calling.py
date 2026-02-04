@@ -53,7 +53,7 @@ def main():
                 call_tool_id = tool_call.get("id")
 
                 tool_to_use = find_tool_by_name(tools, tool_name)
-                observation = tool_to_use.invoke(tool_args)  # why not **?
+                observation = tool_to_use.invoke(tool_args)
                 print(f"Observation: {observation}")
 
                 messages.append(
