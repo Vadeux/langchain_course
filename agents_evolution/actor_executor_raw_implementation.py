@@ -1,7 +1,6 @@
 from dotenv import load_dotenv
 from langchain.tools import tool
-from langchain_classic.agents.output_parsers import \
-    ReActSingleInputOutputParser
+from langchain_classic.agents.output_parsers import ReActSingleInputOutputParser
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool, render_text_description

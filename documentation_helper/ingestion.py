@@ -9,8 +9,7 @@ from langchain_openai.embeddings import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain_tavily import TavilyCrawl
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from logger import (Colors, log_error, log_header, log_info, log_success,
-                    log_warning)
+from logger import Colors, log_error, log_header, log_info, log_success, log_warning
 
 load_dotenv()
 
