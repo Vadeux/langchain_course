@@ -216,5 +216,5 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Chroma db fiels
-.chroma/*
-.chroma
+corrective_RAG/.chroma/*
+corrective_RAG/.chroma
