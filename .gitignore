@@ -218,3 +218,4 @@ __marimo__/
 # Chroma db fiels
 corrective_RAG/.chroma/*
 corrective_RAG/.chroma
+/corrective_RAG/.chroma_db/
