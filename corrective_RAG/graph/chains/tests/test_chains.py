@@ -11,6 +11,7 @@ from corrective_RAG.graph.chains.retrieval_grader import (
     GradeDocuments,
     retrieval_grader,
 )
+from corrective_RAG.graph.chains.router import RouteQuery, question_router
 from corrective_RAG.ingestion import retriever
 
 load_dotenv()
@@ -68,3 +69,15 @@ def test_hallucination_grader_answer_no() -> None:
         }
     )
     assert not res.binary_score
+
+
+def test_router_to_vectorstore() -> None:
+    question = "agent memory"
+    res: RouteQuery = question_router.invoke({"question": question})
+    assert res.datasource == "vectorstore"
+
+
+def test_router_to_websearch() -> None:
+    question = "pizza recipe"
+    res: RouteQuery = question_router.invoke({"question": question})
+    assert res.datasource == "websearch"
