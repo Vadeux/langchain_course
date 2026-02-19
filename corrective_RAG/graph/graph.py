@@ -43,7 +43,7 @@ def grader_generation_grounded_in_documents_and_question(state: GraphState) -> s
             return "useful"
         else:
             print("---DECISION: GENERATION DOES NOT ADDRESSES QUESTION---")
-            return "not userful"
+            return "not useful"
     else:
         print("---DECISION: GENERATION IS NOT GROUNDED IN DOCUMENTS, RE_TRY---")
         return "not supported"
