@@ -1,5 +1,6 @@
 import time
 
+from research_agent.const import ApprovalState
 from research_agent.graph import research_agent
 from research_agent.schemas import GraphState
 
@@ -11,7 +12,7 @@ if __name__ == "__main__":
     init_state = GraphState(
         topic=topic,
         subtopics=[],
-        approval="pending",
+        approval=ApprovalState.PENDING.value,
         research_results=[],
     )
 
@@ -29,7 +30,7 @@ if __name__ == "__main__":
             print(f"\nResearch Area {ind+1}: {result.subtopic.title}")
             print(f" Gap: {result.research_gap}")
 
-        print("Full report saved ti report.md file")
+        print("Full report saved to report_XXX.md file")
 
     duration = time.time() - start_time
     print(f"\nTotal time taken: {duration:.2f} seconds")

@@ -1,12 +1,15 @@
-import re
+import uuid
+from typing import Any
 
 import arxiv
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 
+from research_agent.const import ApprovalState
 from research_agent.schemas import (
     GraphState,
+    ResearchGap,
     ResearchPaper,
     ResearchResult,
     Subtopic,
@@ -19,6 +22,7 @@ llm = ChatOpenAI(temperature=0)
 
 
 def fetch_arxiv_papers(query: str, max_results: int = 3) -> list[ResearchPaper]:
+    """Fetch papers from arXiv based on a title."""
     client = arxiv.Client()
     search = arxiv.Search(
         query=query, max_results=max_results, sort_by=arxiv.SortCriterion.Relevance
@@ -40,7 +44,10 @@ def fetch_arxiv_papers(query: str, max_results: int = 3) -> list[ResearchPaper]:
 
 
 def generate_subtopics(state: GraphState) -> GraphState:
+    """Node function for generating subtopics."""
+    topic = state["topic"]
     structured_llm_generator = llm.with_structured_output(SubtopicList)
+    print(f"---GENERATE SUBTOPICS FOR USER TOPIC: {topic}---")
     try:
         prompt = PromptTemplate(
             template="""
@@ -51,13 +58,13 @@ def generate_subtopics(state: GraphState) -> GraphState:
             input_variables=["topic"],
         )  # TODO: move to prompts file
         chain = prompt | structured_llm_generator
-        out: SubtopicList = chain.invoke({"topic": state["topic"]})
+        response: SubtopicList = chain.invoke({"topic": topic})
         return {
-            "subtopics": out.subtopics,
-            "approval": "pending",
-        }  # TODO: use enum in approval
+            "subtopics": response.subtopics,
+            "approval": ApprovalState.PENDING.value,
+        }
     except Exception as e:
-        print(f"Subtopic generation error: {e}")
+        print(f"Subtopic generation error: {e}. User topic input: {topic}.")
         return {
             "subtopics": [
                 Subtopic(
@@ -70,7 +77,7 @@ def generate_subtopics(state: GraphState) -> GraphState:
                     title="Technical Subtopic 3", description="Fallback description"
                 ),
             ],
-            "approval": "pending",  # TODO: use enum in approval
+            "approval": ApprovalState.PENDING.value,
         }
 
 
@@ -83,18 +90,20 @@ def ask_approval(state: GraphState) -> GraphState:
         decision = input("Approve subtopics? (yes/no/edit): ").strip().lower()
 
         if decision.startswith("y"):
-            return {"approval": "approved"}  # TODO: use enum in approval
+            return {"approval": ApprovalState.APPROVED.value}
         elif decision.startswith("e"):
             pass  # TODO: implement edit option (enter subtopics manually)
         else:
-            return {"approval": "rejected"}  # TODO: use enum in approval
+            # TODO: implement logic to Truly replace rejected subtopics
+            return {"approval": ApprovalState.REJECTED.value}
 
     except Exception as e:
         print(f"Approval error: {str(e)}")
-        return {"approval": "approved"}  # TODO: use enum in approval
+        return {"approval": ApprovalState.APPROVED.value}
 
 
-def analyze_papers(papers: list[ResearchPaper], subtopics: str) -> str:
+def analyze_papers(papers: list[ResearchPaper], subtopic_title: str) -> str:
+    structured_llm_gap = llm.with_structured_output(ResearchGap)
     try:
         papers_info = "\n\n".join(
             [
@@ -104,7 +113,7 @@ def analyze_papers(papers: list[ResearchPaper], subtopics: str) -> str:
         )
         gap_prompt = PromptTemplate(
             template="""
-                Analyze these three research papers on {subtopic}:\n\n\
+                Analyze these three research papers on {subtopic}:\n\n
                 {papers_info}\n\n
                 Identify ONE specific research gep considering:\n
                 - What limitations do these papers share?\n
@@ -112,18 +121,15 @@ def analyze_papers(papers: list[ResearchPaper], subtopics: str) -> str:
                 - What technical challenges remain unaddressed?\n
                 Provide a concise gap description based on all three papers.\n
                 Include references to specific papers where appropriate.\n
-                Format: [concise description].
             """,
             input_variables=["subtopic", "papers_info"],
         )
 
-        gap_chain = gap_prompt | llm
-        gap = gap_chain.invoke({"subtopic": subtopics, "papers_info": papers_info})
-
-        gap = re.sub(
-            r"^(Gap:?\s*)+", "", gap.content, flags=re.IGNORECASE
-        ).strip()  # TODO: reimplement using structured output
-        return gap
+        gap_chain = gap_prompt | structured_llm_gap
+        response = gap_chain.invoke(
+            {"subtopic": subtopic_title, "papers_info": papers_info}
+        )
+        return response.gap
 
     except Exception as e:
         print(f"Gap analysis error: {str(e)}")
@@ -132,10 +138,10 @@ def analyze_papers(papers: list[ResearchPaper], subtopics: str) -> str:
 
 def conduct_research(state: GraphState) -> GraphState:
     try:
-        research_results = []
+        research_results: list[ResearchResult] = []
 
         for subtopic in state["subtopics"]:
-            print(f"Researching: {subtopic.title}...")
+            print(f"--- RESEARCHING: {subtopic.title}... ---")
 
             try:
                 papers = fetch_arxiv_papers(subtopic.title, max_results=3)
@@ -144,7 +150,7 @@ def conduct_research(state: GraphState) -> GraphState:
                 print(f"Paper retrieval error: {str(e)}")
                 papers = [ResearchPaper(title="Error: Paper not found")]
 
-            gap = analyze_papers(papers, subtopic.title)
+            gap = analyze_papers(papers, subtopic.title)  # TODO: move to separate node?
 
             research_results.append(
                 ResearchResult(subtopic=subtopic, papers=papers, research_gap=gap)
@@ -155,32 +161,33 @@ def conduct_research(state: GraphState) -> GraphState:
         return {"research_results": []}
 
 
-def compile_report(state: GraphState) -> GraphState:
+def compile_report(state: GraphState) -> dict[str, Any]:
     try:
         if not state.get("research_results"):
             return {"report": "# Research Report\n\nNo results generated"}
 
-        report = f"# Research Report: {state['topic']}\n\n"
+        report_id = str(uuid.uuid4())
+        report = f"# Research Report {report_id}: {state['topic']}\n\n"
 
-        for result in state["research_results"]:
-            report += f"## {result.subtopic.title}\n"
-            report += f"*{result.subtopic.description}*\n\n"
+        for research_result in state["research_results"]:
+            report += f"## {research_result.subtopic.title}\n"
+            report += f"*{research_result.subtopic.description}*\n\n"
             report += "### Key Papers\n"
 
-            for ind, paper in enumerate(result.papers):
+            for ind, paper in enumerate(research_result.papers):
                 report += f"#### Paper {ind+1}: {paper.title}\n"
                 report += f"- URL: {paper.url}\n"
                 report += f"- Authors: {paper.authors}\n"
                 report += f"- Abstract: {paper.abstract[:500]}...\n"
                 report += f"- Published: {paper.published}\n\n"
 
-            report += f"### Identified Research Gap: {result.research_gap}\n"
-            report += f"{result.research_gap}\n\n"
+            report += f"### Identified Research Gap:\n"
+            report += f"{research_result.research_gap}\n\n"
 
-        with open("report.md", "w") as f:
+        with open(f"report_{report_id}.md", "w") as f:
             f.write(report)
 
-        print("Research report saved as report.md")
+        print(f"Research report saved as report_{report_id}.md")
         return {"report": report}
     except Exception as e:
         print(f"Report generation error: {str(e)}")

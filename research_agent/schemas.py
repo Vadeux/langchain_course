@@ -3,6 +3,8 @@ from typing import Annotated, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 
+from research_agent.const import ApprovalState
+
 
 class Subtopic(BaseModel):
     """Description of the subtopic."""
@@ -16,7 +18,7 @@ class Subtopic(BaseModel):
 class SubtopicList(BaseModel):
     """List of subtopics for a given topic."""
 
-    subtopics: list[Subtopic]
+    subtopics: list[Subtopic] = Field(..., description="List of subtopics")
 
 
 class ResearchPaper(BaseModel):
@@ -36,6 +38,12 @@ class ResearchPaper(BaseModel):
     )
 
 
+class ResearchGap(BaseModel):
+    """Represents a research gap."""
+
+    gap: str = Field(..., description="Research gap")
+
+
 class ResearchResult(BaseModel):
     """Represents the result of a research query."""
 
@@ -49,5 +57,7 @@ class GraphState(TypedDict):
 
     topic: str
     subtopics: list[Subtopic]
-    approval: Literal["pending", "approved", "rejected"]
+    approval: Literal[
+        ApprovalState.PENDING, ApprovalState.APPROVED, ApprovalState.REJECTED
+    ]
     research_results: Annotated[list[ResearchResult], operator.add]
