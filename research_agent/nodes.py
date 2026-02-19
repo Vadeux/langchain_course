@@ -92,7 +92,17 @@ def ask_approval(state: GraphState) -> GraphState:
         if decision.startswith("y"):
             return {"approval": ApprovalState.APPROVED.value}
         elif decision.startswith("e"):
-            pass  # TODO: implement edit option (enter subtopics manually)
+            print("Enter revised topics (one per line, empty line for finish):")
+            new_subtopics = []
+            for n_sub in range(3):
+                title = input(f"Subtopic {n_sub+1} title: ").strip()
+                description = input(f"Subtopic {n_sub+1} description: ").strip()
+                if title and description:
+                    new_subtopics.append(Subtopic(title=title, description=description))
+            return {
+                "subtopics": new_subtopics,
+                "approval": ApprovalState.APPROVED.value,
+            }
         else:
             # TODO: implement logic to Truly replace rejected subtopics
             return {"approval": ApprovalState.REJECTED.value}
